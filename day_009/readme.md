@@ -18,6 +18,6 @@ C[i][j] will be formed by i th row of A and j th col of B
 
 so we can traverse ith row of A using A[i*N + k] , 
 
-and we can traverse jth col of B using B[j*N + k]
+and we can traverse jth col of B using B[k*N + j]
 
 we also implemented a cuda check function to catch any error while copying data or allocating memory on device
