@@ -240,40 +240,67 @@ h_A[i] = 2*N - i           // i.e., 2097152 - i → decreasing
 ## Memory Layout Visualization:
 
 
-Iteration 0:
+### CUDA Global Memory Flow: Multi-Iteration Reduction
 
-┌─────────────┐
+This diagram shows how memory pointers (`d_A`, `d_B`, and `d_original`) evolve across iterations of a multi-pass parallel reduction.
 
-│   Original  │ ← d_A (0x1000), d_original (0x1000)
+---
 
-│   Input     │
+### 🌀 Iteration 0:
 
-└─────────────┘
+```
+🔳 d_A = d_original = 0x1000
 
-Iteration 1:
+┌─────────────┐  
+│  Original   │  ← d_A (0x1000), d_original (0x1000)  
+│   Input     │  
+└─────────────┘  
+```
 
-┌─────────────┐    ┌─────────────┐
+---
 
-│   Original  │    │  Result 1   │ ← d_B (0x2000)
+### 🔁 Iteration 1:
 
-│   Input     │    │             │
+```
+🔳 d_B = 0x2000
 
-└─────────────┘    └─────────────┘
+┌─────────────┐    ┌─────────────┐  
+│  Original   │    │  Result 1   │  ← d_B (0x2000)  
+│   Input     │    │             │  
+└─────────────┘    └─────────────┘  
 
-d_original          d_A becomes this
+Pointers:
+- d_original still points to Original (0x1000)
+- d_A becomes d_B (0x2000)
+```
 
-Iteration 2:
+---
 
+### 🔁 Iteration 2:
 
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+```
+🔳 d_B = 0x3000
 
-│   Original  │    │  Result 1   │    │  Result 2   │ ← d_B (0x3000)
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐  
+│  Original   │    │  Result 1   │    │  Result 2   │  ← d_B (0x3000)  
+│   Input     │    │ (can free)  │    │             │  
+└─────────────┘    └─────────────┘    └─────────────┘  
 
-│   Input     │    │ (can free)  │    │             │
+Pointers:
+- d_original still points to Original (0x1000)
+- d_A (was 0x2000) is now freed
+- d_A becomes d_B (0x3000)
+```
 
-└─────────────┘    └─────────────┘    └─────────────┘
+---
 
-d_original          d_A (gets freed)   d_A becomes this
+You can repeat this until `currentSize == 1`, after which you copy the final minimum result from `d_A` back to host.
+
+This memory flow ensures:
+
+* No leaks
+* No double frees
+* Minimal device allocations
 
 
 so in the end of the program
